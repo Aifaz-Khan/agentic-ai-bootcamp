@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -34,7 +35,7 @@ Recommended order quantity: {recommended_qty} units
 Provide a clear business justification for this recommendation.
 """.strip()
 
-# Fallback explanations when LLM is unavailable
+
 def _trend_fallback(ctx: dict) -> str:
     return (
         f"Demand for {ctx['product_id']} at {ctx['store_id']} shows a {ctx['trend_direction']} trend "
@@ -42,6 +43,7 @@ def _trend_fallback(ctx: dict) -> str:
         f"Peak demand is expected around {ctx['peak_period']}. "
         f"Key drivers are {ctx['top_drivers']}."
     )
+
 
 def _reorder_fallback(ctx: dict) -> str:
     return (
@@ -52,52 +54,53 @@ def _reorder_fallback(ctx: dict) -> str:
 
 
 class LLMService:
-    LLM_TIMEOUT = 30  # seconds
+    LLM_TIMEOUT = 60
+    _executor = ThreadPoolExecutor(max_workers=2)
 
     def __init__(self):
         settings = get_settings()
-        self.llm = OllamaLLM(
-            model=settings.OLLAMA_MODEL,
-            base_url=settings.OLLAMA_BASE_URL,
-            temperature=settings.LLM_TEMPERATURE,
+        self._settings = settings
+
+    def _make_chain(self, template: str):
+        llm = OllamaLLM(
+            model=self._settings.OLLAMA_MODEL,
+            base_url=self._settings.OLLAMA_BASE_URL,
+            temperature=self._settings.LLM_TEMPERATURE,
         )
-        self._trend_chain = (
-            PromptTemplate.from_template(_TREND_EXPLANATION_TEMPLATE)
-            | self.llm
-            | StrOutputParser()
-        )
-        self._reorder_chain = (
-            PromptTemplate.from_template(_REORDER_REASONING_TEMPLATE)
-            | self.llm
-            | StrOutputParser()
-        )
+        return PromptTemplate.from_template(template) | llm | StrOutputParser()
+
+    def _call_trend(self, context: dict) -> str:
+        return self._make_chain(_TREND_EXPLANATION_TEMPLATE).invoke(context)
+
+    def _call_reorder(self, context: dict) -> str:
+        return self._make_chain(_REORDER_REASONING_TEMPLATE).invoke(context)
 
     async def explain_trend(self, context: dict) -> str:
         try:
             loop = asyncio.get_event_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: self._trend_chain.invoke(context)),
+                loop.run_in_executor(self._executor, self._call_trend, context),
                 timeout=self.LLM_TIMEOUT,
             )
             return result
         except asyncio.TimeoutError:
-            logger.warning("LLM trend explanation timed out — using fallback")
+            logger.warning("LLM trend timed out — using fallback")
             return _trend_fallback(context)
         except Exception as e:
-            logger.error("LLM trend explanation failed: %s", e)
+            logger.error("LLM trend failed: %s", e)
             return _trend_fallback(context)
 
     async def explain_reorder(self, context: dict) -> str:
         try:
             loop = asyncio.get_event_loop()
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: self._reorder_chain.invoke(context)),
+                loop.run_in_executor(self._executor, self._call_reorder, context),
                 timeout=self.LLM_TIMEOUT,
             )
             return result
         except asyncio.TimeoutError:
-            logger.warning("LLM reorder explanation timed out — using fallback")
+            logger.warning("LLM reorder timed out — using fallback")
             return _reorder_fallback(context)
         except Exception as e:
-            logger.error("LLM reorder explanation failed: %s", e)
+            logger.error("LLM reorder failed: %s", e)
             return _reorder_fallback(context)

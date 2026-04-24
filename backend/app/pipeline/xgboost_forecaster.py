@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import shap
 from dataclasses import dataclass, field
 from app.pipeline.feature_engineer import FeatureEngineer
 from app.core.logging import get_logger
@@ -108,7 +107,6 @@ class XGBoostForecaster:
         return row
 
     def _compute_shap(self, featured: pd.DataFrame) -> dict[str, float]:
-        explainer = shap.TreeExplainer(self.model)
-        shap_vals = explainer.shap_values(featured[self.feature_cols])
-        mean_abs = np.abs(shap_vals).mean(axis=0)
-        return dict(zip(self.feature_cols, mean_abs.tolist()))
+        # Use XGBoost native feature importance (avoids SHAP segfault on Python 3.13)
+        importance = self.model.feature_importances_
+        return dict(zip(self.feature_cols, importance.tolist()))

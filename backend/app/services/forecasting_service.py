@@ -1,4 +1,3 @@
-import asyncio
 import numpy as np
 from app.services.data_service import DataService
 from app.services.llm_service import LLMService
@@ -20,8 +19,7 @@ class ForecastingService:
         if key not in self._model_cache:
             df = self.data_service.get_product_data(store_id, product_id)
             forecaster = XGBoostForecaster()
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, forecaster.train, df)
+            forecaster.train(df)  # sync — safe on Python 3.13
             self._model_cache[key] = forecaster
             logger.info("Trained and cached model for %s", key)
         return self._model_cache[key]
@@ -71,7 +69,7 @@ class ForecastingService:
     async def explain_trends(self, store_id: str, product_id: str) -> TrendExplanation:
         df = self.data_service.get_product_data(store_id, product_id)
         model = await self._get_model(store_id, product_id)
-        result = model.forecast(df, horizon_days=14)
+        result = model.forecast(df, 14)
 
         trend = self._detect_trend(result.predictions)
         top_drivers = sorted(result.shap_values, key=result.shap_values.get, reverse=True)[:5]
