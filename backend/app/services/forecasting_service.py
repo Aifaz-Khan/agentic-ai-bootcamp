@@ -1,4 +1,6 @@
+import pickle
 import numpy as np
+from pathlib import Path
 from app.services.data_service import DataService
 from app.services.llm_service import LLMService
 from app.pipeline.xgboost_forecaster import XGBoostForecaster
@@ -6,6 +8,7 @@ from app.models.schemas import ForecastResponse, ForecastPoint, TrendExplanation
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+MODELS_DIR = Path(__file__).parents[2] / "models"
 
 
 class ForecastingService:
@@ -17,11 +20,18 @@ class ForecastingService:
     async def _get_model(self, store_id: str, product_id: str) -> XGBoostForecaster:
         key = f"{store_id}::{product_id}"
         if key not in self._model_cache:
-            df = self.data_service.get_product_data(store_id, product_id)
-            forecaster = XGBoostForecaster()
-            forecaster.train(df)  # sync — safe on Python 3.13
+            # Try loading pre-trained model first
+            model_path = MODELS_DIR / f"{store_id}__{product_id}.pkl"
+            if model_path.exists():
+                with open(model_path, "rb") as f:
+                    forecaster = pickle.load(f)
+                logger.info("Loaded pre-trained model for %s", key)
+            else:
+                df = self.data_service.get_product_data(store_id, product_id)
+                forecaster = XGBoostForecaster()
+                forecaster.train(df)
+                logger.info("Trained new model for %s", key)
             self._model_cache[key] = forecaster
-            logger.info("Trained and cached model for %s", key)
         return self._model_cache[key]
 
     async def forecast(

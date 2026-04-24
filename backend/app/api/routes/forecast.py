@@ -1,9 +1,20 @@
 from fastapi import APIRouter, Depends
 from app.models.schemas import ForecastRequest, ForecastResponse, TrendExplanation
 from app.services.forecasting_service import ForecastingService
-from app.api.dependencies import get_forecasting_service
+from app.services.data_service import DataService
+from app.api.dependencies import get_forecasting_service, get_data_service
 
 router = APIRouter(prefix="/forecast", tags=["Forecasting"])
+
+
+@router.get("/stores")
+def get_stores(ds: DataService = Depends(get_data_service)) -> dict:
+    return {"stores": ds.list_stores()}
+
+
+@router.get("/products")
+def get_products(store_id: str, ds: DataService = Depends(get_data_service)) -> dict:
+    return {"products": ds.list_products(store_id)}
 
 
 @router.post("/", response_model=ForecastResponse)

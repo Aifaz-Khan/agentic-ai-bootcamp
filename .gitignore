@@ -19,7 +19,6 @@ nohup.out
 # OS
 .DS_Store
 
-# Models (too large for git)
-*.pkl
-*.joblib
-*.model
+# Models
+backend/models/*.pkl
+backend/models/*.joblib
