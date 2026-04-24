@@ -1,32 +1,22 @@
 import { useEffect, useState } from "react";
-import {
-  ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
-} from "recharts";
+import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const API = import.meta.env.VITE_API_URL;
 
-interface ForecastPoint {
-  date: string;
-  predicted_units: number;
-  lower_bound: number;
-  upper_bound: number;
-}
+interface ForecastPoint { date: string; predicted_units: number; lower_bound: number; upper_bound: number; }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", padding: "12px", fontSize: "13px" }}>
-        <p style={{ color: "#94a3b8", margin: "0 0 8px" }}>{label}</p>
-        {payload.map((p: any) => (
-          <p key={p.name} style={{ color: p.color, margin: "2px 0" }}>
-            {p.name}: <strong>{typeof p.value === "number" ? p.value.toFixed(1) : p.value}</strong>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+      <p style={{ color: "var(--text-muted)", marginBottom: 6 }}>{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.name} style={{ color: p.color, margin: "2px 0" }}>
+          {p.name}: <strong>{typeof p.value === "number" ? p.value.toFixed(1) : p.value}</strong>
+        </p>
+      ))}
+    </div>
+  );
 };
 
 export default function ForecastChart({ storeId, productId }: { storeId: string; productId: string }) {
@@ -36,7 +26,7 @@ export default function ForecastChart({ storeId, productId }: { storeId: string;
   const [loading, setLoading] = useState(false);
   const [horizon, setHorizon] = useState(14);
 
-  const fetchForecast = () => {
+  useEffect(() => {
     setLoading(true);
     fetch(`${API}/forecast/`, {
       method: "POST",
@@ -45,84 +35,71 @@ export default function ForecastChart({ storeId, productId }: { storeId: string;
     })
       .then((r) => r.json())
       .then((res) => {
-        setData(res.forecast?.map((p: ForecastPoint) => ({
-          ...p,
-          date: p.date.slice(5), // show MM-DD only
-        })) ?? []);
+        setData(res.forecast?.map((p: ForecastPoint) => ({ ...p, date: p.date.slice(5) })) ?? []);
         setSummary(res.trend_summary ?? "");
         setSeasonality(res.seasonality_notes ?? "");
       })
       .finally(() => setLoading(false));
-  };
+  }, [storeId, productId, horizon]);
 
-  useEffect(() => { fetchForecast(); }, [storeId, productId, horizon]);
-
-  const avg = data.length ? (data.reduce((s, p) => s + p.predicted_units, 0) / data.length).toFixed(1) : "0";
-  const peak = data.length ? Math.max(...data.map((p) => p.predicted_units)).toFixed(0) : "0";
-  const trend = data.length > 1
-    ? data[data.length - 1].predicted_units > data[0].predicted_units ? "📈 Upward" : "📉 Downward"
-    : "➡️ Stable";
+  const avg = data.length ? (data.reduce((s, p) => s + p.predicted_units, 0) / data.length).toFixed(1) : "—";
+  const peak = data.length ? Math.max(...data.map((p) => p.predicted_units)).toFixed(0) : "—";
+  const trend = data.length > 1 ? (data[data.length - 1].predicted_units > data[0].predicted_units ? "Upward" : "Downward") : "Stable";
 
   return (
-    <div style={{ background: "#1e293b", borderRadius: "12px", padding: "20px", border: "1px solid #334155" }}>
-
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#f1f5f9" }}>📈 Demand Forecast</h3>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>{storeId} / {productId}</p>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Demand Forecast</h3>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{storeId} / {productId}</p>
         </div>
-        <select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}
-          style={{ padding: "4px 8px", borderRadius: "6px", border: "1px solid #475569", background: "#0f172a", color: "#f1f5f9", fontSize: "12px" }}>
-          {[7, 14, 30, 60].map((d) => <option key={d} value={d}>{d} days</option>)}
+        <select className="selector-select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}
+          style={{ minWidth: "auto", padding: "5px 10px", fontSize: 12 }}>
+          {[7, 14, 30, 60].map((d) => <option key={d} value={d}>{d}d</option>)}
         </select>
       </div>
 
-      {/* Mini Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
+      <div className="mini-stats">
         {[
-          { label: "Avg/Day", value: avg, color: "#3b82f6" },
-          { label: "Peak", value: peak, color: "#8b5cf6" },
-          { label: "Trend", value: trend, color: "#10b981" },
+          { label: "Avg/Day", value: avg, color: "var(--accent-blue)" },
+          { label: "Peak", value: peak, color: "var(--accent-purple)" },
+          { label: "Trend", value: trend, color: "var(--accent-green)" },
         ].map((s) => (
-          <div key={s.label} style={{ background: "#0f172a", borderRadius: "8px", padding: "10px", textAlign: "center" }}>
-            <div style={{ fontSize: "16px", fontWeight: "700", color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>{s.label}</div>
+          <div key={s.label} className="mini-stat">
+            <div className="mini-stat-value" style={{ color: s.color }}>{s.value}</div>
+            <div className="mini-stat-label">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Chart */}
       {loading ? (
-        <div style={{ height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
-          ⏳ Training model & generating forecast...
+        <div style={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
+          Loading forecast...
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} />
-            <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+          <ComposedChart data={data} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+            <defs>
+              <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#4f8ef7" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#4f8ef7" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+            <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
-            <Area type="monotone" dataKey="upper_bound" fill="#3b82f620" stroke="none" name="Upper Band" />
-            <Area type="monotone" dataKey="lower_bound" fill="#0f172a" stroke="none" name="Lower Band" />
-            <Line type="monotone" dataKey="predicted_units" stroke="#3b82f6" strokeWidth={2} dot={false} name="Forecast" />
+            <Area type="monotone" dataKey="upper_bound" fill="url(#blueGrad)" stroke="none" name="Upper" />
+            <Area type="monotone" dataKey="lower_bound" fill="var(--bg-primary)" stroke="none" name="Lower" />
+            <Line type="monotone" dataKey="predicted_units" stroke="var(--accent-blue)" strokeWidth={2.5} dot={false} name="Forecast" />
           </ComposedChart>
         </ResponsiveContainer>
       )}
 
-      {/* AI Summary */}
       {summary && (
-        <div style={{ marginTop: "12px", padding: "10px", background: "#0f172a", borderRadius: "8px", borderLeft: "3px solid #3b82f6" }}>
-          <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8", lineHeight: "1.5" }}>
-            🤖 <strong style={{ color: "#3b82f6" }}>AI Insight:</strong> {summary}
-          </p>
-          {seasonality && (
-            <p style={{ margin: "4px 0 0", fontSize: "11px", color: "#64748b" }}>
-              🌿 Seasonality: {seasonality}
-            </p>
-          )}
+        <div className="ai-insight">
+          <p><strong style={{ color: "var(--accent-blue)" }}>AI Insight:</strong> {summary}</p>
+          {seasonality && <p style={{ marginTop: 4, fontSize: 11, color: "var(--text-muted)" }}>Seasonality: {seasonality}</p>}
         </div>
       )}
     </div>

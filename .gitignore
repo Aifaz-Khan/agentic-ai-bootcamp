@@ -10,6 +10,11 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+frontend/package-lock.json
+
+# Data (too large for git)
+data/*.csv
+data/*.json
 
 # Logs
 server.log
@@ -18,7 +23,12 @@ nohup.out
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Models
 backend/models/*.pkl
 backend/models/*.joblib
+
+# Secrets
+.env.local
+.env.production.local
