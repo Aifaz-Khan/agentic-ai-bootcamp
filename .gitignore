@@ -17,9 +17,8 @@ frontend/dist/
 frontend/.env
 frontend/package-lock.json
 
-# Data (large files)
-data/*.csv
-data/*.json
+# Data (large files — gitignore the big one, keep sample)
+data/retail_store_inventory.csv
 
 # Logs
 server.log

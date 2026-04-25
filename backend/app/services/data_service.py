@@ -6,13 +6,23 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Works both locally and on Render
-_BASE = Path(__file__).parents[4]
-_DATA_PATH = (
-    _BASE / "inventory-demand-forecasting-shap" / "data" / "retail_store_inventory.csv"
-    if (_BASE / "inventory-demand-forecasting-shap" / "data" / "retail_store_inventory.csv").exists()
-    else _BASE / "data" / "retail_store_inventory.csv"
-)
+# Try multiple paths — works locally and on Render
+def _find_data_path() -> Path | None:
+    candidates = [
+        Path(__file__).parents[4] / "inventory-demand-forecasting-shap" / "data" / "retail_store_inventory.csv",
+        Path(__file__).parents[4] / "inventory-demand-forecasting-shap" / "data" / "sample_inventory.csv",
+        Path(__file__).parents[3] / "data" / "retail_store_inventory.csv",
+        Path(__file__).parents[3] / "data" / "sample_inventory.csv",
+        Path(__file__).parents[2] / "data" / "retail_store_inventory.csv",
+        Path(__file__).parents[2] / "data" / "sample_inventory.csv",
+    ]
+    for p in candidates:
+        if p.exists():
+            logger.info("Found data file: %s", p)
+            return p
+    return None
+
+_DATA_PATH = _find_data_path()
 
 
 class DataService:
@@ -23,10 +33,14 @@ class DataService:
 
     def get_dataframe(self) -> pd.DataFrame:
         if self._df is None:
+            if _DATA_PATH is None:
+                raise ValueError(
+                    "No default dataset found. Please upload a CSV or JSON file using the Data tab."
+                )
             logger.info("Loading default dataset from %s", _DATA_PATH)
             preprocessor = DataPreprocessor()
             DataService._df = preprocessor.load(_DATA_PATH)
-            DataService._source = "default"
+            DataService._source = _DATA_PATH.name
         return self._df
 
     def load_uploaded_csv(self, content: bytes, filename: str) -> dict:
