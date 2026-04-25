@@ -12,7 +12,7 @@ class FeatureEngineer:
     ROLLING_WINDOWS = [7, 14, 28]
 
     def build(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy().sort_values("date")
+        df = df.copy().sort_values("date").reset_index(drop=True)
 
         # Calendar features — always available from date
         df["day_of_week"] = df["date"].dt.dayofweek
@@ -45,12 +45,12 @@ class FeatureEngineer:
         else:
             df["is_promotion"] = 0
 
-        if "weather_condition" in df.columns and df["weather_condition"].nunique() > 1:
+        if "weather_condition" in df.columns and df["weather_condition"].nunique(dropna=True) > 1:
             df["weather_encoded"] = df["weather_condition"].astype("category").cat.codes
         else:
             df["weather_encoded"] = 0
 
-        if "seasonality" in df.columns and df["seasonality"].nunique() > 1:
+        if "seasonality" in df.columns and df["seasonality"].nunique(dropna=True) > 1:
             df["seasonality_encoded"] = df["seasonality"].astype("category").cat.codes
         else:
             # Derive seasonality from month if not provided

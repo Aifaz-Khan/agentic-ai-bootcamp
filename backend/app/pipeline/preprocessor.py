@@ -194,13 +194,14 @@ class DataPreprocessor:
                 df[col] = default
 
         df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+        df = df.loc[:, ~df.columns.duplicated()]  # remove duplicate columns
         df = df.sort_values(["store_id", "product_id", "date"]).reset_index(drop=True)
         logger.info("Loaded %d rows | %d stores | %d products",
                     len(df), df["store_id"].nunique(), df["product_id"].nunique())
         return df
 
     def filter_product(self, df: pd.DataFrame, store_id: str, product_id: str) -> pd.DataFrame:
-        mask = (df["store_id"] == store_id) & (df["product_id"] == product_id)
+        mask = (df["store_id"].astype(str) == str(store_id)) & (df["product_id"].astype(str) == str(product_id))
         result = df[mask].copy()
         if result.empty:
             raise ValueError(f"No data for store={store_id}, product={product_id}")

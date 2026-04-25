@@ -29,6 +29,5 @@ nohup.out
 .DS_Store
 Thumbs.db
 
-# Models
-backend/models/*.pkl
-backend/models/*.joblib
+# Models — allow pre-trained pkl files for deployment
+# backend/models/*.pkl
