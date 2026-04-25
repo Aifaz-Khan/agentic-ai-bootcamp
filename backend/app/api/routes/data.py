@@ -22,13 +22,21 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
             data = json.loads(content)
             if not isinstance(data, list):
                 raise HTTPException(status_code=400, detail="JSON must be an array of objects")
+            # Get column mapping before loading
+            import pandas as pd
+            from app.pipeline.preprocessor import DataPreprocessor
+            preview_df = pd.DataFrame(data)
+            mapping = DataPreprocessor().get_column_mapping(preview_df)
             result = ds.load_uploaded_json(data, filename)
         elif filename.endswith(".csv"):
+            import io, pandas as pd
+            from app.pipeline.preprocessor import DataPreprocessor
+            preview_df = pd.read_csv(io.BytesIO(content))
+            mapping = DataPreprocessor().get_column_mapping(preview_df)
             result = ds.load_uploaded_csv(content, filename)
         else:
             raise HTTPException(status_code=400, detail="Only CSV and JSON files are supported")
 
-        # Clear model cache AFTER new data is loaded into the singleton data service
         _clear_cache()
 
         return {
@@ -37,6 +45,7 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
             "stores": result["stores"],
             "products": result["products"],
             "source": result["source"],
+            "column_mapping": mapping,
         }
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
