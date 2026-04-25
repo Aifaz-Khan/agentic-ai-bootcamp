@@ -15,13 +15,33 @@ export default function Dashboard() {
   const [dataInfo, setDataInfo] = useState({ rows: 0, source: "default", totalProducts: 0 });
   const [activeTab, setActiveTab] = useState<"forecast" | "chat" | "upload">("forecast");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [serverReady, setServerReady] = useState(false);
+  const [waking, setWaking] = useState(true);
+
+  // Wake up Render on mount
+  useEffect(() => {
+    const wake = async () => {
+      setWaking(true);
+      try {
+        await fetch(`${API.replace('/api/v1', '')}/health`);
+        setServerReady(true);
+      } catch {
+        // retry once after 5 seconds
+        setTimeout(async () => {
+          try { await fetch(`${API.replace('/api/v1', '')}/health`); setServerReady(true); } catch {}
+        }, 5000);
+      }
+      setWaking(false);
+    };
+    wake();
+  }, []);
 
   useEffect(() => {
-    fetch(`${API}/forecast/stores`)
+    fetch(`${API}/forecast/stores`, { signal: AbortSignal.timeout(90000) })
       .then((r) => r.json())
       .then((d) => setStores(d.stores || []))
       .catch(() => setStores(["S001", "S002", "S003", "S004", "S005"]));
-    fetch(`${API}/data/info`)
+    fetch(`${API}/data/info`, { signal: AbortSignal.timeout(90000) })
       .then((r) => r.json())
       .then((d) => setDataInfo({ rows: d.rows, source: d.source, totalProducts: d.total_products }))
       .catch(() => {});
@@ -73,6 +93,12 @@ export default function Dashboard() {
       </nav>
 
       <div className="main">
+        {/* Cold start warning */}
+        {waking && (
+          <div style={{ background: "#1e3a5f", border: "1px solid #3b82f6", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#93c5fd" }}>
+            Connecting to server... This may take 30-60 seconds on first load (free tier cold start).
+          </div>
+        )}
         {/* Stats */}
         <div className="stats-grid">
           {stats.map((s) => (

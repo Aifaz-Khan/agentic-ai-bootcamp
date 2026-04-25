@@ -32,6 +32,7 @@ export default function ForecastChart({ storeId, productId }: { storeId: string;
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ store_id: storeId, product_id: productId, horizon_days: horizon }),
+      signal: AbortSignal.timeout(120000),
     })
       .then((r) => r.json())
       .then((res) => {
